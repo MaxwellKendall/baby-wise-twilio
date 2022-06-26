@@ -1,57 +1,53 @@
-const { set, add, isAfter, format, isBefore } = require('date-fns');
+const { set, add, sub, isAfter, format, isBefore } = require('date-fns');
 
-const today = new Date(Date.now());
-const fivePm = set(today, { hours: 14, minutes: 59 });
+const weeksOld = 23;
+const daysOld = 1;
+const today = set(new Date(Date.now()), { hours: 1 });
+const threePm = set(today, { hours: 14, minutes: 59 });
 const elevenPm = set(today, { hours: 22, minutes: 59 });
+const tenPm = set(today, { hours: 20, minutes: 59 });
+const wakeTime = '7:00';
+const birthday = sub(today, { weeks: weeksOld, days: daysOld })
 
-const template = {
-    // number of feedings during weeks 1-2
+const numberOfFeedingsByWeeksOld = {
     0: 9,
-    // number of feedings during weeks 3-6
-    3: 8,
-    // number of feedings during weeks 7-10
-    7: 7
+    2: 8,
+    6: 7,
+    9: 6,
+    14: 5,
+    23: 5,
 };
 
-// const birthday = set(new Date(), { month: 6, date: 27, hours: 00, minutes: 00 });
-const birthday = set(new Date(), { month: 5, date: 25, hours: 00, minutes: 00 });
 const schedule = Object
-    .entries(template)
-    .reduce((acc, [afterWeek, numberOfFeedingsPerDay]) => {
+    .entries(numberOfFeedingsByWeeksOld)
+    .reduce((acc, [afterWeek, numberOfFeedingsPerDay], i) => {
+        const mergeCount = i + 1;
         const date = add(birthday, { weeks: afterWeek });
-        acc.set(date, numberOfFeedingsPerDay);
+        acc.set(date, [numberOfFeedingsPerDay, mergeCount]);
         return acc;
     }, new Map());
 
-const getDailyFeedings = () => {
-    let dailyFeedings = null;
-    const today = new Date();
-    for(var [date, feedings] of schedule.entries()) {
+const getDailyFeedingsAndMergeCount = () => {
+    let feedingsAndMergeCount = null;
+    for(var [date, [feedings, mergeCount]] of schedule.entries()) {
         if (isAfter(today, date)) {
-            dailyFeedings = feedings;
+            feedingsAndMergeCount = [feedings, mergeCount];
         };
     }
-    return dailyFeedings;
-}
-
-const whichMerge = (dailyFeedings) => {
-    if (dailyFeedings === 9) return 0;
-    if (dailyFeedings === 8) return 1;
-    if (dailyFeedings === 7) return 2;
+    return feedingsAndMergeCount;
 }
 
 const handleFirstTwoWeeks = () => {
     // -1 as we assume the first feeding is already done?
-    const numberOfFeedingsToday = getDailyFeedings();
-    const input = '9:00';
-    const [hours, minutes] = String(input).split(':').map((s) => parseInt(s, 10));
+    const numberOfFeedingsToday = getDailyFeedingsAndMergeCount()[0];
+    const [hours, minutes] = String(wakeTime).split(':').map((s) => parseInt(s, 10));
     const msgs = [];
     let prevFeed = null;
     for (let i = 1; i <= numberOfFeedingsToday; i++) {
         let currentFeed = prevFeed
             ? add(prevFeed, { hours: 2, minutes: 30 })
             : set(today, { hours, minutes });
-        if (prevFeed && isAfter(prevFeed, fivePm) && isBefore(prevFeed, elevenPm)) {
+        if (prevFeed && isAfter(prevFeed, threePm) && isBefore(prevFeed, elevenPm)) {
             currentFeed = add(prevFeed, { hours: 3 });
         }
         msgs.push(
@@ -63,4 +59,90 @@ const handleFirstTwoWeeks = () => {
     console.log(msg);
 }
 
-handleFirstTwoWeeks();
+const handleAfterFirstTwoWeeks = () => {
+    // -1 as we assume the first feeding is already done?
+    const numberOfFeedingsToday = getDailyFeedingsAndMergeCount()[0];
+    const [hours, minutes] = String(wakeTime).split(':').map((s) => parseInt(s, 10));
+    const msgs = [];
+    let prevFeed = null;
+    for (let i = 1; i <= numberOfFeedingsToday; i++) {
+        let currentFeed = prevFeed
+            ? add(prevFeed, { hours: 2, minutes: 30 })
+            : set(today, { hours, minutes });
+        if (prevFeed && isAfter(prevFeed, tenPm)) {
+            currentFeed = add(prevFeed, { hours: 4 });
+        }
+        msgs.push(
+            `Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')}`
+        );
+        prevFeed = currentFeed;
+    }
+    const msg = msgs.join('\n');
+    console.log(msg);
+}
+
+const handleFourthAndFifth = (isFifth) => {
+    // -1 as we assume the first feeding is already done?
+    const numberOfFeedingsToday = getDailyFeedingsAndMergeCount()[0];
+    const [hours, minutes] = String(wakeTime).split(':').map((s) => parseInt(s, 10));
+    const msgs = [];
+    let prevFeed = null;
+    for (let i = 1; i <= numberOfFeedingsToday; i++) {
+        let currentFeed = prevFeed
+            ? add(prevFeed, { hours: 3, minutes: 0 })
+            : set(today, { hours, minutes });
+        if (isFifth && i === 3) {
+            msgs.push(`Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')} ** CATNAP **`);
+        } else if (i === 4) {
+            msgs.push(`Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')} **NO SLEEP TIL BEDTIME**`);
+        } else {
+            msgs.push(`Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')}`)
+        }
+        prevFeed = currentFeed;
+    }
+    if (isFifth) {
+        msgs.push(`👆 Mid afternoon adds catnap! (pg 102)`)
+    } else {
+        msgs.push(`👆 Late afternoon excludes nap and adds waketime! (pg 101)`)
+    }
+    const msg = msgs.join('\n');
+    console.log(msg);
+}
+
+handleSixth = () => {
+    const numberOfFeedingsToday = getDailyFeedingsAndMergeCount()[0];
+    const [hours, minutes] = String(wakeTime).split(':').map((s) => parseInt(s, 10));
+    const msgs = [];
+    let prevFeed = null;
+    for (let i = 1; i <= numberOfFeedingsToday; i++) {
+        let currentFeed = prevFeed
+            ? add(prevFeed, { hours: 3, minutes: 0 })
+            : set(today, { hours, minutes });
+        msgs.push(
+            i === 4
+                ? `Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')} waketime + dinner + more waketime`
+                : `Feeding Number ${i} -- ${format(currentFeed, 'hh:mm bbbb')}`
+        );
+        prevFeed = currentFeed;
+    }
+    msgs.push(`👆 Late afternoon includes lots of wake time! (pg 103)`)
+    const msg = msgs.join('\n');
+    console.log(msg);
+}
+
+
+const main = () => {
+    const mergeCount = getDailyFeedingsAndMergeCount()[1];
+    console.log('mergeCount', mergeCount)
+    if (mergeCount === 0) {
+        handleFirstTwoWeeks();
+    } else if (mergeCount === 4 || mergeCount === 5) {
+        handleFourthAndFifth(mergeCount === 5);
+    } else if (mergeCount > 5) {
+        handleSixth();  
+    } else {
+        handleAfterFirstTwoWeeks();
+    }
+}
+
+main();
